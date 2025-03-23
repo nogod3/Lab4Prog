@@ -1,0 +1,128 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
+
+public class TextEditor
+{
+    private TextFile _textFile;
+    private Stack<TextFileMemento> _history = new Stack<TextFileMemento>();
+
+    public TextEditor(TextFile textFile)
+    {
+        _textFile = textFile;
+    }
+
+    public void Save()
+    {
+        _history.Push(new TextFileMemento(_textFile.Content));
+    }
+
+    public void Undo()
+    {
+        if (_history.Count > 0)
+        {
+            _textFile.Content = _history.Pop().Content;
+        }
+    }
+
+    public void Edit(string newContent)
+    {
+        Save();
+        _textFile.Content = newContent;
+    }
+
+    public void Display()
+    {
+        Console.WriteLine($"Файл: {_textFile.FileName}");
+        Console.WriteLine($"Содержимое: {_textFile.Content}");
+    }
+}
+
+public class TextFileMemento
+{
+    public string Content { get; }
+
+    public TextFileMemento(string content)
+    {
+        Content = content;
+    }
+}
+
+public class TextFileSearcher
+{
+    public static List<string> SearchFiles(string directory, string[] keywords)
+    {
+        List<string> foundFiles = new List<string>();
+
+        foreach (string filePath in Directory.GetFiles(directory, "*.txt"))
+        {
+            string content = File.ReadAllText(filePath);
+            foreach (string keyword in keywords)
+            {
+                if (content.Contains(keyword))
+                {
+                    foundFiles.Add(filePath);
+                    break;
+                }
+            }
+        }
+
+        return foundFiles;
+    }
+}
+
+public class TextFile
+{
+    public string FileName { get; set; }
+    public string Content { get; set; }
+
+    public TextFile() { }
+
+    public TextFile(string fileName, string content)
+    {
+        FileName = fileName;
+        Content = content;
+    }
+
+    public void JsonSerialize(string filePath)
+    {
+        string json = JsonSerializer.Serialize(this);
+        File.WriteAllText(filePath, json);
+    }
+
+    public static TextFile JsonDeserialize(string filePath)
+    {
+        string json = File.ReadAllText(filePath);
+        return JsonSerializer.Deserialize<TextFile>(json);
+    }
+}
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        string directory = @"C:\TextFiles";  
+        string[] keywords = { "важно", "срочно" };  
+
+        List<string> foundFiles = TextFileSearcher.SearchFiles(directory, keywords);
+        Console.WriteLine("Найденные файлы:");
+        foreach (string file in foundFiles)
+        {
+            Console.WriteLine(file);
+        }
+
+        TextFile textFile = new TextFile("example.txt", "Это пример текстового файла."); 
+        TextEditor editor = new TextEditor(textFile);
+
+        editor.Display();
+        editor.Edit("Это обновленный текстовый файл.");  
+        editor.Display();
+        editor.Undo();
+        editor.Display();
+
+        textFile.JsonSerialize("example.json");
+        TextFile deserializedFile = TextFile.JsonDeserialize("example.json");
+        Console.WriteLine($"Десериализованное содержимое: {deserializedFile.Content}");  
+    }
+}
